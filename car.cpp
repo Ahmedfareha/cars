@@ -1,9 +1,22 @@
 #include <thread>
 #include <iostream>
+#include <signal.h>
 #include <chrono>
 #include <vector>
+#include <sys/types.h>
+#include <unistd.h>
+#include <boost/interprocess/managed_shared_memory.hpp>
+#include <boost/interprocess/sync/named_mutex.hpp>
+#include <boost/interprocess/creation_tags.hpp>
+
+using namespace boost::interprocess;
+
+
 using namespace::std;
 
+void sighup(int i);
+void sigint(int i);
+void sigquit();
 class Car{
     private: static int LEFT_END; static int RIGHT_END; int SPEED; bool DIRECTION; int LOCATION; int NEXT_NODE; bool FLAG;
     public:
@@ -74,6 +87,29 @@ int getpulse(std::vector<Car> cars)
 int Car::LEFT_END;
 int Car::RIGHT_END;
 
+//// sighup() function definition
+//void sighup(int i)
+//
+//{
+//    signal(SIGHUP, sighup); /* reset signal */
+//    printf("CHILD: I have received a SIGHUP\n");
+//}
+//
+//// sigint() function definition
+//void sigint(int i)
+//
+//{
+//    signal(SIGINT, sigint); /* reset signal */
+//    printf("CHILD: I have received a SIGINT\n");
+//}
+//
+//// sigquit() function definition
+//void sigquit(int i)
+//{
+//    printf("My DADDY has Killed me!!!\n");
+//    exit(0);
+//}
+
 int main(){
     Car::initializeEnds(0,100);
     Car car1 = Car(2,1,95,5,0);
@@ -84,10 +120,49 @@ int main(){
     v1.push_back(car2);
     int refresh_rate=getpulse(v1);
 
-    thread th1(&run, car1, 10, refresh_rate);
-    thread th2(&run, car2, 5, refresh_rate);
-    th1.join();
-    th2.join();
+//    thread th1(&run, car1, 10, refresh_rate);
+//    thread th2(&run, car2, 5, refresh_rate);
+//    th1.join();
+//    th2.join();
+
+//    basic_managed_shared_memory basicManagedSharedMemory{open_or_create, "shm", 1024};
+//    int *i = basic_managed_shared_memory.find_or_construct<int>("Integer")();
+//    named_mutex named_mtx{"mtx"};
+//    named_mtx.lock();
+//    ++(*i);
+//    std::cout << *i << '\n';
+//    named_mtx.unlock();
+
+//    fork();
+//    pid_t pid;
+//
+//    /* fork a child process */
+//    pid = fork();
+//
+//    printf("\n PID1 %d\n",pid);
+//
+//    pid = fork();
+//
+//    printf("\n PID2 %d\n",pid);
+
+    managed_shared_memory managed_shm{open_or_create, "shm", 1024};
+    int *i = managed_shm.find_or_construct<int>("Integer")();
+    named_mutex named_mtx{open_or_create, "mtx"};
+    named_mutex named_mtx1{open_only,"mtx"};
+    std::cout << *i << '\n';
+    ++(*i);
+    std::cout<<"Enabling :lock1\n";
+    named_mtx1.lock();
+    ++(*i);
+    std::cout<<"Enabling :lock2\n";
+    named_mtx.lock();
+    std::cout<<"Enabled :lock2\n";
+    int *j = managed_shm.find_or_construct<int>("Integer")();
+    ++(*j);
+    std::cout << *i << '\n';
+    named_mtx.unlock();
+    std::cout<<*j<<'\n';
     cout<<"END";
+    managed_shm.all_memory_deallocated();
     return 0;
 }
