@@ -18,26 +18,45 @@ void sighup(int i);
 void sigint(int i);
 void sigquit();
 class Car{
-    private: static int LEFT_END; static int RIGHT_END; int SPEED; bool DIRECTION; int LOCATION; int NEXT_NODE; bool FLAG;
+
+    private: static int LEFT_END; static int RIGHT_END; static managed_shared_memory sharedMap;static void* address; string NAME;int SPEED; bool DIRECTION; int* LOCATION; int NEXT_NODE; bool FLAG;const char* locName;
     public:
-    Car(int speed, int direction, int location, int next_node, bool flag){
-        this->SPEED = speed; this->DIRECTION = direction; this->LOCATION = location; this->NEXT_NODE = next_node; this->FLAG = flag; 
+    Car(string name, int speed, int direction, int location, int next_node, bool flag){
+        std::cout<<"Car Initialization in Process:";
+        this->NAME = name;
+        this->SPEED = speed;
+        this->DIRECTION = direction;
+        this->NEXT_NODE = next_node;
+        this->FLAG = flag;
+        std::cout<<"Car Initialization in Process:";
+        locName = (name+="Location").c_str();
+        std::cout<<locName;
+        LOCATION = sharedMap.find_or_construct<int>(locName)();
+        *LOCATION = location;
     }
     static void initializeEnds(int left, int right){
-        LEFT_END = left; RIGHT_END = right;
+        LEFT_END = left;
+        RIGHT_END = right;
+        address = sharedMap.get_address();
     }
     int getNextLocation(int time){
-        return this->LOCATION*time;
+        return (*LOCATION)*time;
     }
     void setLocation(int location){
-        this->LOCATION = location;
+        std::cout<<"Enabling Lock:"+NAME+"\n";
+        named_mutex named_mtx{open_only,(NAME+="Lock").c_str() };
+        named_mtx.lock();
+        std::cout<<"Updating Value :"+NAME+"\n";
+        *LOCATION = location;
+        named_mtx.unlock();
+        std::cout<<"Released Lock:"+NAME+"\n";
     }
     int getspeed()
     {
         return this->SPEED;
     }
     int getLocation(){
-        return this->LOCATION;
+        return *LOCATION;
     }
     void changeDirection(){
         this->DIRECTION = this->DIRECTION==0?1:0;
@@ -46,9 +65,12 @@ class Car{
         return this->DIRECTION;
     }
     bool isEnd(){
-        if(this->LOCATION>=RIGHT_END) return 1;
-        else if(this->LOCATION<=LEFT_END) return 1;
+        if(*LOCATION>=RIGHT_END) return 1;
+        else if(*LOCATION<=LEFT_END) return 1;
         else return 0;
+    }
+    static void cleanup(){
+        sharedMap.deallocate(address);
     }
 };
 
@@ -86,6 +108,8 @@ int getpulse(std::vector<Car> cars)
 
 int Car::LEFT_END;
 int Car::RIGHT_END;
+void* Car::address;
+managed_shared_memory Car::sharedMap{open_or_create, "Road", 1024};
 
 //// sighup() function definition
 //void sighup(int i)
@@ -111,15 +135,21 @@ int Car::RIGHT_END;
 //}
 
 int main(){
+    std::cout<<"Initializing Ends:\n";
     Car::initializeEnds(0,100);
-    Car car1 = Car(2,1,95,5,0);
-    Car car2 = Car(2,0,2,5,0);
+    std::cout<<"Initializing Cars:\n";
+    Car car1 = Car("Car1",2,1,95,5,0);
+    std::cout<<"Successfully created Car:Car1\n";
+    Car car2 = Car("Car2",2,0,2,5,0);
+    std::cout<<"Successfully created Car:Car2\n";
     //for calculation of shortest time
     vector<Car> v1;
+    std::cout<<"Adding cars in vector for pulse calculation Car\n";
     v1.push_back(car1);
     v1.push_back(car2);
+    std::cout<<"Starting calculation\n";
     int refresh_rate=getpulse(v1);
-
+    std::cout<<"RefreshRate(in milliseconds)="<<refresh_rate<<"\n";
 //    thread th1(&run, car1, 10, refresh_rate);
 //    thread th2(&run, car2, 5, refresh_rate);
 //    th1.join();
@@ -145,24 +175,18 @@ int main(){
 //
 //    printf("\n PID2 %d\n",pid);
 
-    managed_shared_memory managed_shm{open_or_create, "shm", 1024};
-    int *i = managed_shm.find_or_construct<int>("Integer")();
-    named_mutex named_mtx{open_or_create, "mtx"};
-    named_mutex named_mtx1{open_only,"mtx"};
-    std::cout << *i << '\n';
-    ++(*i);
-    std::cout<<"Enabling :lock1\n";
-    named_mtx1.lock();
-    ++(*i);
-    std::cout<<"Enabling :lock2\n";
-    named_mtx.lock();
-    std::cout<<"Enabled :lock2\n";
-    int *j = managed_shm.find_or_construct<int>("Integer")();
-    ++(*j);
-    std::cout << *i << '\n';
-    named_mtx.unlock();
-    std::cout<<*j<<'\n';
-    cout<<"END";
-    managed_shm.all_memory_deallocated();
+//    managed_shared_memory managed_shm{open_or_create, "shm", 1024};
+//    std::cout<<managed_shm.get_free_memory()<<"\n"<<managed_shm.get_size()<<"\n";
+//    int *i = managed_shm.find_or_construct<int>("Integer1")();
+//    named_mutex named_mtx{open_only, "mtx"};
+//    named_mtx.unlock();
+//    managed_shm.destroy<int>("Integer");
+//    std::cout << ++*i << '\n';
+//    std::cout<<"Enabling :lock1\n";
+//    ++(*i);
+//    std::cout<<"Enabled :lock2\n";
+//    named_mtx.unlock();
+    cout<<"END\n";
+//    std::cout<<"Deallocating Memory\n";
     return 0;
 }
