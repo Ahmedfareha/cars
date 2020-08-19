@@ -8,6 +8,8 @@
 #include <boost/interprocess/managed_shared_memory.hpp>
 #include <boost/interprocess/sync/named_mutex.hpp>
 #include <boost/interprocess/creation_tags.hpp>
+#define MAP_NAME "Road"
+#define MAP_SIZE 1024
 
 using namespace boost::interprocess;
 
@@ -109,7 +111,7 @@ int getpulse(std::vector<Car> cars)
 int Car::LEFT_END;
 int Car::RIGHT_END;
 void* Car::address;
-managed_shared_memory Car::sharedMap{open_or_create, "Road", 1024};
+managed_shared_memory Car::sharedMap{open_or_create, MAP_NAME, MAP_SIZE};
 
 //// sighup() function definition
 //void sighup(int i)
@@ -134,59 +136,42 @@ managed_shared_memory Car::sharedMap{open_or_create, "Road", 1024};
 //    exit(0);
 //}
 
-int main(){
-    std::cout<<"Initializing Ends:\n";
-    Car::initializeEnds(0,100);
-    std::cout<<"Initializing Cars:\n";
-    Car car1 = Car("Car1",2,1,95,5,0);
-    std::cout<<"Successfully created Car:Car1\n";
-    Car car2 = Car("Car2",2,0,2,5,0);
-    std::cout<<"Successfully created Car:Car2\n";
+int main() {
+    std::cout << "Initializing Ends:\n";
+    Car::initializeEnds(0, 100);
+    std::cout << "Initializing Cars:\n";
+    Car car1 = Car("Car1", 2, 1, 95, 5, 0);
+    std::cout << "Successfully created Car:Car1\n";
+    Car car2 = Car("Car2", 2, 0, 2, 5, 0);
+    std::cout << "Successfully created Car:Car2\n";
     //for calculation of shortest time
     vector<Car> v1;
-    std::cout<<"Adding cars in vector for pulse calculation Car\n";
+    std::cout << "Adding cars in vector for pulse calculation Car\n";
     v1.push_back(car1);
     v1.push_back(car2);
-    std::cout<<"Starting calculation\n";
-    int refresh_rate=getpulse(v1);
-    std::cout<<"RefreshRate(in milliseconds)="<<refresh_rate<<"\n";
+    std::cout << "Starting calculation\n";
+    int refresh_rate = getpulse(v1);
+    std::cout << "RefreshRate(in milliseconds)=" << refresh_rate << "\n";
 //    thread th1(&run, car1, 10, refresh_rate);
 //    thread th2(&run, car2, 5, refresh_rate);
 //    th1.join();
 //    th2.join();
 
-//    basic_managed_shared_memory basicManagedSharedMemory{open_or_create, "shm", 1024};
-//    int *i = basic_managed_shared_memory.find_or_construct<int>("Integer")();
-//    named_mutex named_mtx{"mtx"};
-//    named_mtx.lock();
-//    ++(*i);
-//    std::cout << *i << '\n';
-//    named_mtx.unlock();
+// Sample Code for Using fork() [for future reference]
+    /*{fork();
+    pid_t pid;
+    // fork a child process
+    pid = fork();
 
-//    fork();
-//    pid_t pid;
-//
-//    /* fork a child process */
-//    pid = fork();
-//
-//    printf("\n PID1 %d\n",pid);
-//
-//    pid = fork();
-//
-//    printf("\n PID2 %d\n",pid);
+    printf("\n PID1 %d\n",pid);
 
-//    managed_shared_memory managed_shm{open_or_create, "shm", 1024};
-//    std::cout<<managed_shm.get_free_memory()<<"\n"<<managed_shm.get_size()<<"\n";
-//    int *i = managed_shm.find_or_construct<int>("Integer1")();
-//    named_mutex named_mtx{open_only, "mtx"};
-//    named_mtx.unlock();
-//    managed_shm.destroy<int>("Integer");
-//    std::cout << ++*i << '\n';
-//    std::cout<<"Enabling :lock1\n";
-//    ++(*i);
-//    std::cout<<"Enabled :lock2\n";
-//    named_mtx.unlock();
+    pid = fork();
+
+    printf("\n PID2 %d\n",pid);
+        }
+        */
+    std::cout<<"Deallocating Memory\n";
+    shared_memory_object::remove("Road");
     cout<<"END\n";
-//    std::cout<<"Deallocating Memory\n";
     return 0;
 }
